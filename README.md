@@ -34,7 +34,6 @@ async fn main() {
 ## Walkdir
 ```rust no_run
 use s3_filesystem::OpenOptions;
-use tokio::io::AsyncReadExt;
 
 #[tokio::main]
 async fn main() {
@@ -49,12 +48,12 @@ async fn main() {
     }
 }
 ```
+## Walkdir and download 
 
 ## Walkdir and download
 
 ```rust no_run
 use s3_filesystem::OpenOptions;
-use tokio::io::AsyncReadExt;
 
 #[tokio::main]
 async fn main() {
