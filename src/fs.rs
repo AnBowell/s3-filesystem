@@ -95,7 +95,7 @@ impl OpenOptions {
         let full_data_path = self.mount_path.join(&self.bucket).join(&path);
 
         let s3_data_path = match path.as_ref().to_str() {
-            Some(path) => path,
+            Some(path) => path.replace("\\", "/"),
             None => {
                 return Err(io::Error::new(
                     io::ErrorKind::InvalidInput,
