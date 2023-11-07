@@ -1,4 +1,4 @@
-use aws_sdk_s3::Client;
+use aws_sdk_s3::{primitives::ByteStream, Client};
 use std::{
     io,
     path::{Path, PathBuf},
@@ -7,7 +7,7 @@ use tokio::{
     fs::File,
     io::{AsyncSeekExt, AsyncWriteExt},
 };
-use tokio_stream::StreamExt;
+
 pub const DEFAULT_DATA_STORE: &'static str = "target/temp";
 
 /// Holds configuration data for opening a file from S3.
@@ -144,6 +144,55 @@ impl OpenOptions {
         return Ok(file);
     }
 
+    /// Write a file to S3
+    ///
+    /// Enter the path, relative to the bucket, and this function will create a
+    /// file in S3. It will return the file that has been written to.
+    ///
+    pub async fn write_s3<P>(&self, path: P, buf: &[u8]) -> io::Result<File>
+    where
+        P: AsRef<Path>,
+    {
+        let full_data_path = self.mount_path.join(&self.bucket).join(&path);
+        match full_data_path.parent() {
+            Some(parent_path) => std::fs::create_dir_all(parent_path)?,
+            None => (),
+        }
+        let s3_data_path = match path.as_ref().to_str() {
+            Some(path) => path.replace("\\", "/"),
+            None => {
+                return Err(io::Error::new(
+                    io::ErrorKind::InvalidInput,
+                    "Invalid File Path",
+                ))
+            }
+        };
+
+        let mut file = tokio::fs::OpenOptions::new()
+            .read(true) // TODO - Do I want to return an empty file?
+            .write(true)
+            .create(true)
+            .open(&full_data_path)
+            .await?;
+
+        file.write_all(buf).await?;
+
+        let byte_stream = ByteStream::from_path(full_data_path).await?;
+
+        let put_object_builder = self.s3_client.put_object().bucket(&self.bucket);
+        return match put_object_builder
+            .key(s3_data_path)
+            .body(byte_stream)
+            .send()
+            .await
+        {
+            Ok(_) => Ok(file),
+            Err(e) => {
+                return Err(io::Error::new(io::ErrorKind::Other, e)); // TODO:  Error handling. Maybe a custom error?
+            }
+        };
+    }
+
     /// Return a vector of Directories/Files in a WalkDir order.
     ///
     /// This function returns the files and folders in the bucket defined in [OpenOptions].
@@ -170,14 +219,9 @@ impl OpenOptions {
             Err(e) => return Err(io::Error::new(io::ErrorKind::Other, e)),
         };
 
-        let objects = match objects_res.contents() {
-            Some(x) => x,
-            None => return Ok(vec![]),
-        };
+        let mut data_to_return = Vec::new();
 
-        let mut data_to_return = Vec::with_capacity(objects.len());
-
-        for s3_object in objects {
+        for s3_object in objects_res.contents() {
             let filepath = match s3_object.key() {
                 Some(x) => x.to_string(),
                 None => continue,
