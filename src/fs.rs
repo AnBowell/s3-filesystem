@@ -1,4 +1,7 @@
-use aws_sdk_s3::{primitives::ByteStream, Client};
+
+
+use aws_sdk_s3::{Client, operation::{get_object::GetObjectError, put_object::PutObjectError, list_objects_v2::ListObjectsV2Error}, primitives::ByteStream};
+use aws_smithy_runtime_api::client::orchestrator::HttpResponse;
 use std::{
     io,
     path::{Path, PathBuf},
@@ -7,6 +10,8 @@ use tokio::{
     fs::File,
     io::{AsyncSeekExt, AsyncWriteExt},
 };
+
+use crate::error::S3FilesystemError;
 
 pub const DEFAULT_DATA_STORE: &'static str = "target/temp";
 
@@ -88,9 +93,10 @@ impl OpenOptions {
     /// Files will be placed in the `mount_path` and all folder structure is retained. Folders will be created
     /// if they do not exist already.
     ///
-    pub async fn open_s3<P>(&self, path: P) -> io::Result<File>
+    pub async fn open_s3<P>(&self, path: P) -> Result<File, S3FilesystemError<GetObjectError,HttpResponse>>
     where
         P: AsRef<Path>,
+       
     {
         let full_data_path = self.mount_path.join(&self.bucket).join(&path);
 
@@ -100,7 +106,7 @@ impl OpenOptions {
                 return Err(io::Error::new(
                     io::ErrorKind::InvalidInput,
                     "Invalid File Path",
-                ))
+                ).into())
             }
         };
 
@@ -131,7 +137,7 @@ impl OpenOptions {
             Ok(x) => x,
             Err(e) => {
                 tokio::fs::remove_file(&full_data_path).await?;
-                return Err(io::Error::new(io::ErrorKind::Other, e)); // TODO:  Error handling. Maybe a custom error?
+                return Err(e.into()) // TODO:  Error handling. Maybe a custom error?
             }
         };
 
@@ -149,7 +155,7 @@ impl OpenOptions {
     /// Enter the path, relative to the bucket, and this function will create a
     /// file in S3. It will return the file that has been written to.
     ///
-    pub async fn write_s3<P>(&self, path: P, buf: &[u8]) -> io::Result<File>
+    pub async fn write_s3<P>(&self, path: P, buf: &[u8]) ->Result<File, S3FilesystemError<PutObjectError, HttpResponse>>
     where
         P: AsRef<Path>,
     {
@@ -164,12 +170,12 @@ impl OpenOptions {
                 return Err(io::Error::new(
                     io::ErrorKind::InvalidInput,
                     "Invalid File Path",
-                ))
+                ).into())
             }
         };
 
         let mut file = tokio::fs::OpenOptions::new()
-            .read(true) // TODO - Do I want to return an empty file?
+            .read(true) 
             .write(true)
             .create(true)
             .open(&full_data_path)
@@ -186,9 +192,9 @@ impl OpenOptions {
             .send()
             .await
         {
-            Ok(_) => Ok(file),
+            Ok(_) => Ok(file),//Todo - remove the file!
             Err(e) => {
-                return Err(io::Error::new(io::ErrorKind::Other, e)); // TODO:  Error handling. Maybe a custom error?
+                return Err(e.into()); 
             }
         };
     }
@@ -198,7 +204,7 @@ impl OpenOptions {
     /// This function returns the files and folders in the bucket defined in [OpenOptions].
     ///
     /// It returns their path, size, and whether or not they're a directory.
-    pub async fn walkdir<P>(&self, path: P) -> Result<Vec<DirEntry>, io::Error>
+    pub async fn walkdir<P>(&self, path: P) -> Result<Vec<DirEntry>, S3FilesystemError<ListObjectsV2Error, HttpResponse>>
     where
         P: AsRef<Path>,
     {
@@ -209,14 +215,14 @@ impl OpenOptions {
             None => {
                 return Err(io::Error::new(
                     io::ErrorKind::InvalidInput,
-                    "Invalid filepath. Please ensure it's UTF-8 only.",
-                ))
+                    "Invalid filepath for S3. Please ensure it's UTF-8 only.",
+                ).into())
             }
         }
 
         let objects_res = match obj_req.send().await {
             Ok(x) => x,
-            Err(e) => return Err(io::Error::new(io::ErrorKind::Other, e)),
+            Err(e) => return Err(e.into()),
         };
 
         let mut data_to_return = Vec::new();
