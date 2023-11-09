@@ -1,7 +1,7 @@
 /// The read tests in this file use REDASA COVID-19 Open Data stored on S3 as part of the AWS open data sponsorship program.
 ///
-/// It is stored on eu-west2 - if your AWS client is not connected to eu-west2 it will fail.
-/// TODO -  use a specified region.
+/// IMPORTANT: for the tests to work you will need to be signed into AWS via the CLI. If your AWS client is not connected to eu-west2 it will fail,
+/// as this is where the free data is stored.
 use s3_filesystem::OpenOptions;
 use tokio::io::AsyncReadExt;
 
@@ -24,7 +24,6 @@ async fn test_open_file() {
 
     let mut string = String::new();
 
-    // read the whole file
     file.read_to_string(&mut string).await.unwrap();
 
     println!("String: {}", string);
