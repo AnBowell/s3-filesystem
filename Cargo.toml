@@ -1,15 +1,30 @@
 [package]
 name = "s3-filesystem"
-version = "0.1.0"
+version = "0.0.1"
 edition = "2021"
+
+description = "A crate to sync files on AWS S3 to your local machine."
+license = "MIT OR Apache-2.0"
+authors = [
+    "Andrew Bowell <andrewbowell@mail.com>",
+    "Nathaniel Curnick <nathaniel.curnick@gmail.com>",
+]
+keywords = ["S3", "filesystem", "AWS"]
+categories = ["filesystem"]
+repository = "https://github.com/AnBowell/s3-filesystem"
+homepage = "https://github.com/AnBowell/s3-filesystem"
+documentation = "https://docs.rs/s3-filesystem/latest/s3-filesystem/"
+readme = "README.md"
+
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
 tokio-stream = "0.1.14"
 tokio = { version = "1.33.0", features = ["fs", "io-util", "io-std"] }
-aws-sdk-s3 = "0.33.0"
-aws-config = "0.56.1"
+aws-sdk-s3 = "0.35.0"
+aws-config = "0.57.1"
+aws-smithy-runtime-api = "0.57.1"
 
 [dev-dependencies]
 tokio = { version = "1.33.0", features = ["full"] }

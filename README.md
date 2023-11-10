@@ -1,7 +1,22 @@
-# S3-Filesystem 
-A way to asynchronously interact with S3 files as if they were local on your disk. 
+# s3-filesystem 
+This crate is a simple wrapper for file interactions with S3. It enables you to open a file, write a file, and perform a walk through the objects in an S3 bucket. Both reading and writing will create a copy on your machine to make S3 feel as much like your local file system as possible. 
+
+
+This crate utilises the official AWS SDK for S3 operations and uses Tokio for local IO. 
+
+When using the crate, be careful! Writing files can overwrite data previously there and using S3 will incur costs.
+
+# Usage
+First create an OpenOptions struct containing the bucket you wish to connect to and where you wish files to be cached to. 
+
+There are then three functions available 
+- **[crate::OpenOptions::open_s3]**: Downloads the file and opens it and returns a Tokio File for data to be read from as standard.
+- **[crate::OpenOptions::write_s3]**: Writes the file to disk and to S3, returning the Tokio File.
+- **[crate::OpenOptions::walkdir]**: Walks through the objects in the S3 bucket, with an optional path to walk through a subset of objects.
+
 
 ## Open a file
+
 ```rust no_run
 use s3_filesystem::OpenOptions;
 use tokio::io::AsyncReadExt;
@@ -30,6 +45,29 @@ async fn main() {
 }
 ```
 
+## Write a file
+```rust no_run
+use s3_filesystem::OpenOptions;
+use tokio::fs;
+
+const BUCKET: &'static str = "test-bucket";
+
+#[tokio::main]
+async fn main() {
+    let bucket = BUCKET.to_string();
+
+    let open_options = OpenOptions::new(bucket, None)
+        .await
+        .mount_path("data/test/")
+        .force_download(true);
+
+    let data = fs::read("data/manifest.txt").await.unwrap();
+
+    open_options.write_s3("manifest.txt", &data).await.unwrap();
+
+    println!("Data uploaded successfully");
+}
+```
 
 ## Walkdir
 ```rust no_run
@@ -49,8 +87,6 @@ async fn main() {
 }
 ```
 ## Walkdir and download 
-
-## Walkdir and download
 
 ```rust no_run
 use s3_filesystem::OpenOptions;
@@ -82,14 +118,15 @@ async fn main() {
         println!("Entry: {:?} downloaded", entry.path);
     }
 }
+
+
+
 ```
 
 
 
 ## TODOs 
-
-- Introduce some nicer error handling. Currently using std io errors, but could re-export aws errors etc.
 - Add feature flags for automatic decompression?
 - Look for changes in the file? If bytes is different download, if not read from cache. Beats generic force download config.
 
-Test on more operating systems with more edge cases - currently had very little testing!
+Test on more operating systems with more edge cases - currently little testing has occurred.
