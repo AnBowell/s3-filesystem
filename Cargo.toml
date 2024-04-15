@@ -7,7 +7,7 @@ description = "A crate to sync files on AWS S3 to your local machine."
 license = "MIT OR Apache-2.0"
 authors = [
     "Andrew Bowell <andrewbowell@mail.com>",
-    "Nathaniel Curnick <nathaniel.curnick@gmail.com>",
+    "Indigo Curnick <indigocurnick@gmail.com>",
 ]
 keywords = ["S3", "filesystem", "AWS"]
 categories = ["filesystem"]
